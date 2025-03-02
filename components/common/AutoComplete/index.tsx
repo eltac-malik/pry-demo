@@ -13,7 +13,8 @@ export const AutoComplete = () => {
   const { autoCompleteHistory, setAutoCompleteHistory } = useHistory();
   const [fullInput, setFullInput] = React.useState('');
   const [currentWord, setCurrentWord] = React.useState('');
-  const [selectedValues, setSelectedValues] = React.useState<IAutoComplete[]>([]); 
+  const [selectedValues, setSelectedValues] = React.useState<IAutoComplete[]>([]);
+  const [highlightedIndex, setHighlightedIndex] = React.useState<number>(-1); // 🔹 Klavye ile seçim için state
 
   const mergeOperatorsWithData = (data: IAutoComplete[]) => {
     const operatorEntries: IAutoComplete[] = MATH_OPERATORS.map(
@@ -32,12 +33,32 @@ export const AutoComplete = () => {
     setFullInput(newValue);
 
     const lastChar = newValue.slice(-1);
-
     if (MATH_OPERATORS.includes(lastChar)) {
       setCurrentWord(lastChar);
     } else {
       const words = newValue.split(/[\s+\-*/()]/).filter(Boolean);
       setCurrentWord(words[words.length - 1] || '');
+    }
+
+    setHighlightedIndex(-1); 
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (groupedOptions.length === 0) return;
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setHighlightedIndex((prev) => (prev < groupedOptions.length - 1 ? prev + 1 : 0));
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : groupedOptions.length - 1));
+    } else if (event.key === 'Enter' && highlightedIndex >= 0) {
+      event.preventDefault();
+      const selectedOption = groupedOptions[highlightedIndex];
+      setSelectedValues((prev) => [...prev, selectedOption]);
+      setFullInput('');
+      setCurrentWord('');
+      setHighlightedIndex(-1);
     }
   };
 
@@ -67,8 +88,8 @@ export const AutoComplete = () => {
         : [],
     inputValue: currentWord,
     onInputChange: handleInputChange,
-    value: selectedValues, 
-    onChange: (_event, newValue) => setSelectedValues(newValue), 
+    value: selectedValues,
+    onChange: (_event, newValue) => setSelectedValues(newValue),
   });
 
   const handleAdd = () => {
@@ -83,10 +104,9 @@ export const AutoComplete = () => {
 
       setFullInput('');
       setCurrentWord('');
-      setSelectedValues([]); 
-
+      setSelectedValues([]);
     } catch (err) {
-      console.error('ERROR :', err);
+      console.error('ERROR:', err);
     }
   };
 
@@ -112,7 +132,7 @@ export const AutoComplete = () => {
               const { key, ...tagProps } = getTagProps({ index });
               return <StyledTag key={key} {...tagProps} label={option.name} />;
             })}
-            <input {...getInputProps()} value={fullInput} />
+            <input {...getInputProps()} value={fullInput} onKeyDown={handleKeyDown} />
           </InputWrapper>
         </div>
         {groupedOptions.length > 0 && currentWord.length >= 1 ? (
@@ -120,7 +140,11 @@ export const AutoComplete = () => {
             {groupedOptions.map((option, index) => {
               const { key, ...optionProps } = getOptionProps({ option, index });
               return (
-                <li key={key} {...optionProps}>
+                <li
+                  key={`${key}`}
+                  {...optionProps}
+                  className={highlightedIndex === index ? 'bg-gray-200' : ''}
+                >
                   <span>
                     {option.name}{' '}
                     {option?.category !== 'operator' ? `- ${option.value}` : ''}
